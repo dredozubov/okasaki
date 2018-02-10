@@ -19,14 +19,16 @@ library
                      , Exercise_2_1
                      , Exercise_2_2
                      , Exercise_2_3
+                     , UnbalancedSet
+                     , UnbalancedSet.Common
+                     , UnbalancedSet.Lazy
+                     , UnbalancedSet.Strict
   build-depends:       base >= 4.7 && < 5
                      , deepseq
                      , hedgehog
                      , criterion
   default-language:    Haskell2010
-  default-extensions:  BangPatterns
-                     , DeriveGeneric
-                     , MultiParamTypeClasses
+  default-extensions:  MultiParamTypeClasses
                      , FlexibleInstances
 
 -- executable okasaki-exe
