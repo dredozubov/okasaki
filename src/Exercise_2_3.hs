@@ -38,8 +38,12 @@ uInsertMaybe e t = case uInsertMaybe' e t of
     uInsertMaybe' :: Ord a => a -> Tree a -> Maybe (Tree a)
     uInsertMaybe' e L.E         = Just (L.T L.E e L.E)
     uInsertMaybe' e t@(L.T a n b)
-      | e < n      = Just (L.T (uInsert e a) n b)
-      | e > n      = Just (L.T a n (uInsert e b))
+      | e < n      = case uInsertMaybe' e a of
+        Just res -> Just (L.T res n b)
+        Nothing  -> Just t
+      | e > n      = case uInsertMaybe' e b of
+        Just res -> Just (L.T a n res)
+        Nothing  -> Just t
       | otherwise  = Nothing
 
 instance Ord e => UnbalancedSet Ex_2_3 e where
@@ -51,15 +55,19 @@ instance Ord e => UnbalancedSet Ex_2_3 e where
 newtype Ex_2_3Strict a = Ex_2_3Strict (TreeStrict a)
 
 uInsertMaybeStrict :: Ord a => a -> TreeStrict a -> TreeStrict a
-uInsertMaybeStrict e t = case uInsertMaybe' e t of
+uInsertMaybeStrict e t = case uInsertMaybeStrict' e t of
   Just t' -> t'
   Nothing -> t
   where
-    uInsertMaybe' :: Ord a => a -> TreeStrict a -> Maybe (TreeStrict a)
-    uInsertMaybe' e S.E         = Just (S.T S.E e S.E)
-    uInsertMaybe' e t@(S.T a n b)
-      | e < n      = Just (S.T (uInsert e a) n b)
-      | e > n      = Just (S.T a n (uInsert e b))
+    uInsertMaybeStrict' :: Ord a => a -> TreeStrict a -> Maybe (TreeStrict a)
+    uInsertMaybeStrict' e S.E         = Just (S.T S.E e S.E)
+    uInsertMaybeStrict' e t@(S.T a n b)
+      | e < n      = case uInsertMaybeStrict' e a of
+        Just res -> Just (S.T res n b)
+        Nothing  -> Just t
+      | e > n      = case uInsertMaybeStrict' e b of
+        Just res -> Just (S.T a n res)
+        Nothing  -> Just t
       | otherwise  = Nothing
 
 instance Ord e => UnbalancedSet Ex_2_3Strict e where
