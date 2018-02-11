@@ -1,13 +1,13 @@
 name:                okasaki
 version:             0.1.0.0
-synopsis:            Initial project template from stack
+synopsis:            Solutions to "Purely Functional Data Structures"
 description:         Please see README.md
 homepage:            http://github.com/githubuser/okasaki#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2016 Author Here
+author:              Denis Redozubov
+maintainer:          denis.redozubov@gmail.com
+copyright:           2018 Denis Redozubov
 category:            Web
 build-type:          Simple
 -- extra-source-files:
@@ -16,9 +16,12 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Chapter2
-                     , Exercise_2_1
-                     , Exercise_2_2
-                     , Exercise_2_3
+                     , Chapter2.Exercise_2_1
+                     , Chapter2.Exercise_2_2
+                     , Chapter2.Exercise_2_3
+                     , Chapter2.Exercise_2_4
+                     , Chapter2.Exercise_2_5
+                     , Chapter2.Exercise_2_6
                      , UnbalancedSet
                      , UnbalancedSet.Common
                      , UnbalancedSet.Lazy

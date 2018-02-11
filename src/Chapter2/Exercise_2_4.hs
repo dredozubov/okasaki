@@ -5,7 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Exercise_2_4 where
+module Chapter2.Exercise_2_4 where
 
 import           UnbalancedSet.Common
 import           UnbalancedSet.Lazy as L

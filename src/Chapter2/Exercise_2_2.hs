@@ -4,7 +4,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Exercise_2_2 where
+module Chapter2.Exercise_2_2 where
 
 import           UnbalancedSet.Common
 import           UnbalancedSet.Lazy as L

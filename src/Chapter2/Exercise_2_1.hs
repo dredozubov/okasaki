@@ -1,4 +1,4 @@
-module Exercise_2_1 where
+module Chapter2.Exercise_2_1 where
 
 -- 2.1
 suffixes :: [a] -> [[a]]
