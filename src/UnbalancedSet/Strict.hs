@@ -12,23 +12,28 @@
 
 module UnbalancedSet.Strict
   ( TreeStrict(..)
+  , fromList
   , uMemberTreeStrict
   , uInsertTreeStrict
   , prop_insert_strict
   , prop_member_strict
   , tests
+  , memberBenchmarkStrict
+  , insertBenchmarkStrict
   ) where
 
 
-import UnbalancedSet.Common
+import           UnbalancedSet.Common
 
-import Control.DeepSeq
-import Control.Monad
-import Data.Coerce
-import Data.List
-import Data.Proxy
-import GHC.Generics
+import           Control.DeepSeq
+import           Control.Monad
+import           Data.Coerce
+import           Data.List
+import           Data.Proxy
+import           Data.Typeable
+import           GHC.Generics
 
+import           Criterion.Main
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
@@ -62,6 +67,7 @@ instance Ord e => UnbalancedSet TreeStrict e where
   uMember = uMemberTreeStrict
   uInsert = uInsertTreeStrict
 
+-- helpers
 
 toList :: TreeStrict a -> [a]
 toList E = []
@@ -80,9 +86,12 @@ genTreeStrict =
       pure $ T a x b)
     ]
 
+-- Generates a BST
 genBST :: Gen (TreeStrict Int)
 genBST =
   fromList <$> Gen.list (Range.linear 0 100) (Gen.int (Range.linear 0 10000))
+
+-- Tests
 
 prop_member_strict :: forall t. (UnbalancedSet t Int, Coercible (TreeStrict Int) (t Int)) => Proxy t -> Property
 prop_member_strict _ = withTests 5000 . property $ do
@@ -103,6 +112,53 @@ tests = Group "Strict BST"
   , ("prop_insert", prop_insert_strict (Proxy @TreeStrict))
   ]
 
+-- benchmarks
+memberBenchmarkStrict
+  :: forall t
+  . (UnbalancedSet t Int, Coercible (TreeStrict Int) (t Int))
+  => Int     -- ^ element to look up
+  -> [TreeStrict Int] -- ^ average case values and trees
+  -> [TreeStrict Int] -- ^ worst case values and trees
+  -> Proxy t
+  -> Benchmark
+memberBenchmarkStrict e ats wts t = bgroup "strict"
+  [ bench "average case - member" $ nf (uMember e . (coerce :: TreeStrict Int -> t Int) <$>) ats
+  , bench "worst case - member" $ nf (uMember e . (coerce :: TreeStrict Int -> t Int) <$>) wts
+  ]
+
+insertBenchmarkStrict
+  :: forall t
+  . ( NFData (t Int)
+    , Typeable t
+    , UnbalancedSet t Int
+    , Coercible (TreeStrict Int) (t Int)
+    , Coercible (t Int) (TreeStrict Int) )
+  => Int     -- ^ element to look up
+  -> [TreeStrict Int] -- ^ average case values and trees
+  -> [TreeStrict Int] -- ^ worst case values and trees
+  -> Proxy t
+  -> Benchmark
+insertBenchmarkStrict e ats wts p = bgroup ("Strict " ++ show (typeRep p))
+  [ bench "average case - insert" $ nf (uInsert e . (coerce :: TreeStrict Int -> t Int) <$>) ats
+  , bench "worst case - insert" $ nf (uInsert offender . (coerce :: TreeStrict Int -> t Int) <$>) wts
+  ]
+  where
+    offender :: Int
+    offender  = maximum' (maximum <$> filter null $ toList . coerce <$> wts)
+    maximum' :: [Int] -> Int
+    maximum' xs = if null xs then 42 else maximum xs
+
 main :: IO ()
 main = do
-  void $ checkParallel tests
+  testResult <- checkParallel tests
+  when testResult $ do
+    e <- Gen.sample $ Gen.int (Range.linear 0 10000)
+    l <- replicateM 1000 $ do
+      Gen.sample $ Gen.list (Range.linear 0 100) (Gen.int (Range.linear 0 10000))
+    let
+      ats = force $!! fromList <$> l
+      wts = force $!! fromList . sort <$> l
+    defaultMain
+      [ memberBenchmarkStrict e ats wts (Proxy @TreeStrict)
+      , insertBenchmarkStrict e ats wts (Proxy @TreeStrict)
+      ]

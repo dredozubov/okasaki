@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -7,24 +8,28 @@
 
 module Chapter2.Exercise_2_4 where
 
-import           UnbalancedSet.Common
+import           UnbalancedSet
 import           UnbalancedSet.Lazy as L
 import           UnbalancedSet.Strict as S
 
+import           Control.DeepSeq
 import           Control.Monad
 import           Data.Coerce
+import           Data.List
 import           Data.Proxy
 
+import           Criterion.Main
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+
 
 -- ex 2.4
 -- Combine the ideas of the previous two exercises to obtain a version of insert
 -- that performs no unnecessary copying and uses no more than d+1 comparisons
 
 -- lazy
-newtype Ex_2_4 a = Ex_2_4 (Tree a)
+newtype Ex_2_4 a = Ex_2_4 (Tree a) deriving (NFData)
 
 betterInsert :: Ord a => a -> Tree a -> Tree a
 betterInsert e L.E = L.T L.E e L.E
@@ -43,7 +48,7 @@ instance Ord a => UnbalancedSet Ex_2_4 a where
   uInsert e = coerce . betterInsert e . coerce
 
 -- strict
-newtype Ex_2_4Strict a = Ex_2_4Strict (TreeStrict a)
+newtype Ex_2_4Strict a = Ex_2_4Strict (TreeStrict a) deriving (NFData)
 
 betterInsertStrict :: Ord a => a -> TreeStrict a -> TreeStrict a
 betterInsertStrict e S.E = S.T S.E e S.E
@@ -69,4 +74,19 @@ tests2_4 = Group "exercise 2.4 - d+1 comparisons + no-copying" $
 
 main :: IO ()
 main = do
-  void $ checkParallel tests2_4
+  testResult <- checkParallel tests2_4
+  when testResult $ do
+    e <- Gen.sample $ Gen.int (Range.linear 0 10000)
+    l <- replicateM 1000 $ do
+      Gen.sample $ Gen.list (Range.linear 0 100) (Gen.int (Range.linear 0 10000))
+    let
+      atl = force $! L.fromList <$> l
+      wtl = force $! L.fromList . sort <$> l
+      ats = force $!! toStrict <$> atl
+      wts = force $!! toStrict <$> wtl
+    defaultMain
+      [ L.insertBenchmark e atl wtl (Proxy @(L.Tree))
+      , L.insertBenchmark e atl wtl (Proxy @(Ex_2_4))
+      , S.insertBenchmarkStrict e ats wts (Proxy @(S.TreeStrict))
+      , S.insertBenchmarkStrict e ats wts (Proxy @(Ex_2_4Strict))
+      ]

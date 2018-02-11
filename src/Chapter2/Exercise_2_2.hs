@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -6,20 +7,24 @@
 
 module Chapter2.Exercise_2_2 where
 
-import           UnbalancedSet.Common
+import           UnbalancedSet
 import           UnbalancedSet.Lazy as L
 import           UnbalancedSet.Strict as S
 
+import           Control.DeepSeq
 import           Control.Monad
 import           Data.Coerce
+import           Data.List
 import           Data.Proxy
 
+import           Criterion.Main
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-newtype Ex_2_2 a = Ex_2_2 (Tree a)
-newtype Ex_2_2Strict a = Ex_2_2Strict (TreeStrict a)
+
+newtype Ex_2_2 a = Ex_2_2 (Tree a) deriving (NFData)
+newtype Ex_2_2Strict a = Ex_2_2Strict (TreeStrict a) deriving (NFData)
 
 -- ex 2.2
 -- rewrites uMember in a way that does maximum (d + 1) comparisons for depth d.
@@ -61,4 +66,19 @@ tests2_2 = Group "exercise 2.2 - d+1 comparisons" $
 
 main :: IO ()
 main = do
-  void $ checkParallel tests2_2
+  testResult <- checkParallel tests2_2
+  when testResult $ do
+    e <- Gen.sample $ Gen.int (Range.linear 0 10000)
+    l <- replicateM 1000 $ do
+      Gen.sample $ Gen.list (Range.linear 0 100) (Gen.int (Range.linear 0 10000))
+    let
+      atl = force $! L.fromList <$> l
+      wtl = force $! L.fromList . sort <$> l
+      ats = force $!! toStrict <$> atl
+      wts = force $!! toStrict <$> wtl
+    defaultMain
+      [ L.memberBenchmark e atl wtl (Proxy @(L.Tree))
+      , L.memberBenchmark e atl wtl (Proxy @(Ex_2_2))
+      , S.memberBenchmarkStrict e ats wts (Proxy @(S.TreeStrict))
+      , S.memberBenchmarkStrict e ats wts (Proxy @(Ex_2_2Strict))
+      ]

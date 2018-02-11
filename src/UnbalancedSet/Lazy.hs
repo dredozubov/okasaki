@@ -9,25 +9,31 @@
 
 module UnbalancedSet.Lazy
   ( Tree(..)
+  , fromList
   , uMemberTree
   , uInsertTree
   , prop_insert
   , prop_member
   , tests
+  , memberBenchmark
+  , insertBenchmark
   ) where
 
-import UnbalancedSet.Common
+import           UnbalancedSet.Common
 
-import Control.DeepSeq
-import Control.Monad
-import Data.Coerce
-import Data.List
-import Data.Proxy
-import GHC.Generics
+import           Control.DeepSeq
+import           Control.Monad
+import           Data.Coerce
+import           Data.List
+import           Data.Proxy
+import           Data.Typeable
+import           GHC.Generics
 
+import           Criterion.Main
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+
 
 -- 2.2 BSTs
 data Tree e = E | T (Tree e) e (Tree e)
@@ -59,6 +65,8 @@ instance Ord e => UnbalancedSet Tree e where
   uInsert = uInsertTree
 
 
+-- helpers
+
 toList :: Tree a -> [a]
 toList E = []
 toList (T a n b) = toList a ++ n : toList b
@@ -76,9 +84,12 @@ genTree =
       pure $ T a x b)
     ]
 
+-- generates a BST
 genBST :: Gen (Tree Int)
 genBST =
   fromList <$> Gen.list (Range.linear 0 100) (Gen.int (Range.linear 0 10000))
+
+-- tests
 
 prop_member
   :: forall t
@@ -102,11 +113,58 @@ prop_insert _ = withTests 5000 . property $ do
     let l = toList t in if elem e l then l else insert e (toList t)
 
 tests :: Group
-tests = Group "Strict BST"
+tests = Group "Lazy BST"
   [ ( "prop_member", prop_member (Proxy @Tree))
   , ("prop_insert", prop_insert (Proxy @Tree))
   ]
 
+-- benchmarks
+memberBenchmark
+  :: forall t
+  . (UnbalancedSet t Int, Coercible (Tree Int) (t Int))
+  => Int     -- ^ element to look up
+  -> [Tree Int] -- ^ average case values and trees
+  -> [Tree Int] -- ^ worst case values and trees
+  -> Proxy t
+  -> Benchmark
+memberBenchmark e ats wts t = bgroup "lazy"
+  [ bench "average case - member" $ nf (uMember e . (coerce :: Tree Int -> t Int) <$>) ats
+  , bench "worst case - member" $ nf (uMember e . (coerce :: Tree Int -> t Int) <$>) wts
+  ]
+
+insertBenchmark
+  :: forall t
+  . ( Typeable t
+    , NFData (t Int)
+    , UnbalancedSet t Int
+    , Coercible (Tree Int) (t Int)
+    , Coercible (t Int) (Tree Int) )
+  => Int     -- ^ element to look up
+  -> [Tree Int] -- ^ average case values and trees
+  -> [Tree Int] -- ^ worst case values and trees
+  -> Proxy t
+  -> Benchmark
+insertBenchmark e ats wts p = bgroup ("lazy " ++ show (typeRep p))
+  [ bench "average case - insert" $ nf (uInsert e . (coerce :: Tree Int -> t Int) <$>) ats
+  , bench "worst case - insert" $ nf (uInsert offender . (coerce :: Tree Int -> t Int) <$>) wts
+  ]
+  where
+    offender :: Int
+    offender  = maximum' (maximum <$> filter null $ toList . coerce <$> wts)
+    maximum' :: [Int] -> Int
+    maximum' xs = if null xs then 42 else maximum xs
+
 main :: IO ()
 main = do
-  void $ checkParallel tests
+  testResult <- checkParallel tests
+  when testResult $ do
+    e <- Gen.sample $ Gen.int (Range.linear 0 10000)
+    l <- replicateM 1000 $ do
+      Gen.sample $ Gen.list (Range.linear 0 100) (Gen.int (Range.linear 0 10000))
+    let
+      ats = force $! fromList <$> l
+      wts = force $! fromList . sort <$> l
+    defaultMain
+      [ memberBenchmark e ats wts (Proxy @Tree)
+      , insertBenchmark e ats wts (Proxy @Tree)
+      ]
