@@ -22,6 +22,14 @@ library
                      , Chapter2.Exercise_2_4
                      , Chapter2.Exercise_2_5
                      , Chapter2.Exercise_2_6
+                       Chapter3
+                     , Chapter3.Exercise_3_1
+                     , Chapter3.Exercise_3_2
+                     , Chapter3.Exercise_3_3
+                     , Chapter3.Exercise_3_4
+                     , Heap
+                     , LeftistHeap
+                     , RedBlackSet
                      , UnbalancedSet
                      , UnbalancedSet.Common
                      , UnbalancedSet.Lazy
@@ -30,6 +38,7 @@ library
                      , deepseq
                      , hedgehog
                      , criterion
+  ghc-options:       -Wall
   default-language:    Haskell2010
   default-extensions:  MultiParamTypeClasses
                      , FlexibleInstances
